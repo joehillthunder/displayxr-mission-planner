@@ -15,6 +15,7 @@ export const SENSOR_UNIFORMS = {
   uSolar: { value: 0.1 }, // solar loading (day) — near 0 at night
   uSun: { value: new THREE.Vector3(0.5, 0.7, 0.3).normalize() },
   uAmbient: { value: 0 }, // night: the ground cools, people stand out more
+  uGain: { value: 1 }, // the Brightness control, for the IR and X-RAY pictures
 };
 
 const VERT = /* glsl */ `
@@ -35,7 +36,7 @@ const VERT = /* glsl */ `
 `;
 
 const COMMON = /* glsl */ `
-  uniform float uPalette; uniform float uTime; uniform float uSolar; uniform vec3 uSun; uniform float uAmbient;
+  uniform float uPalette; uniform float uTime; uniform float uSolar; uniform vec3 uSun; uniform float uAmbient; uniform float uGain;
   varying vec3 vN; varying vec3 vW; varying vec2 vUv;
   float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
   vec3 palette(float t) {
@@ -62,7 +63,7 @@ const THERMAL_FRAG = /* glsl */ `
     t -= pow(rim(), 3.0) * 0.07;
     t -= uAmbient * 0.16 * ext;
     t += grain();
-    gl_FragColor = vec4(palette(t), 1.0);
+    gl_FragColor = vec4(min(palette(t) * uGain, 1.0), 1.0);
   }
 `;
 
@@ -77,7 +78,7 @@ const TERRAIN_THERMAL_FRAG = /* glsl */ `
     float d = distance(cameraPosition, vW);
     t = mix(t, 0.28, smoothstep(900.0, 2600.0, d)); // atmosphere washes out far terrain
     t += grain();
-    gl_FragColor = vec4(palette(t), 1.0);
+    gl_FragColor = vec4(min(palette(t) * uGain, 1.0), 1.0);
   }
 `;
 
@@ -88,7 +89,7 @@ const XRAY_FRAG = /* glsl */ `
     float r = rim();
     float a = uBase + uRim * pow(r, 2.0);
     a *= 1.0 + uPulse * 0.25 * sin(uTime * 4.0 + vW.x * 0.3);
-    gl_FragColor = vec4(uColor * a, 1.0);
+    gl_FragColor = vec4(uColor * a * uGain, 1.0);
   }
 `;
 
@@ -103,7 +104,7 @@ const TERRAIN_XRAY_FRAG = /* glsl */ `
     col *= 0.55 + 0.6 * sh;
     float cy = vW.y / 5.0; float gc = abs(fract(cy - 0.5) - 0.5) / fwidth(cy);
     col += vec3(0.0, 0.35, 0.45) * (1.0 - min(gc, 1.0)) * 0.35;
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col * uGain, 1.0);
   }
 `;
 

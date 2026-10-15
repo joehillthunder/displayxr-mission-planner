@@ -139,21 +139,22 @@ const env = {
     const d = on ? MOON_DIR : SUN_DIR;
     skyMat.uniforms.sunDir.value.copy(d);
     if (on) {
-      sun.color.set(0x8fa6ff); sun.intensity = 0.35;
-      hemi.color.set(0x334466); hemi.groundColor.set(0x0b0d10); hemi.intensity = 0.25;
+      sun.color.set(0x8fa6ff); sun.intensity = 1.0;
+      hemi.color.set(0x4a5f88); hemi.groundColor.set(0x161a20); hemi.intensity = 0.8;
       skyMat.uniforms.top.value.set(0x02040a); skyMat.uniforms.hor.value.set(0x0b1320); skyMat.uniforms.sunCol.value.set(0x9fb4ff);
-      this.fog = new THREE.FogExp2(0x0a111c, 0.0006);
+      this.fog = new THREE.FogExp2(0x0e1726, 0.00022);
       SENSOR_UNIFORMS.uSolar.value = 0.0; SENSOR_UNIFORMS.uAmbient.value = 1;
-      renderer.toneMappingExposure = 1.1;
+      this.baseExposure = 1.25;
     } else {
       sun.color.set(0xfff1dc); sun.intensity = 2.6;
       hemi.color.set(0xcfe4ff); hemi.groundColor.set(0x5b5140); hemi.intensity = 0.9;
       skyMat.uniforms.top.value.set(0x3f78c0); skyMat.uniforms.hor.value.set(0xc9d8e2); skyMat.uniforms.sunCol.value.set(0xfff0d0);
       this.fog = new THREE.FogExp2(0xbccbd6, 0.00016);
       SENSOR_UNIFORMS.uSolar.value = 0.12; SENSOR_UNIFORMS.uAmbient.value = 0;
-      renderer.toneMappingExposure = 1.0;
+      this.baseExposure = 1.0;
     }
     SENSOR_UNIFORMS.uSun.value.copy(d);
+    applyBrightness();
     this.applySensor(sensors?.mode || 'EO');
     $('night').textContent = on ? '☾ NIGHT' : '☀ DAY';
     $('night').classList.toggle('on', on);
@@ -169,6 +170,25 @@ const env = {
     renderer.setClearColor(scene.background || 0x000000);
   },
 };
+
+// ── brightness ─────────────────────────────────────────────────────────────────────────────────
+// One control for every view: EO scales the tone-mapping exposure, IR / X-RAY scale the picture.
+// [ and ] step it; ?bright=0.5-3 sets it; the last choice is remembered.
+let brightness = clamp(+(params.get('bright') ?? safeStore('mp.bright') ?? 1.3) || 1.3, 0.5, 3);
+function applyBrightness() {
+  renderer.toneMappingExposure = (env.baseExposure ?? 1) * brightness;
+  SENSOR_UNIFORMS.uGain.value = 0.7 + 0.3 * brightness;
+  const el = $('bright'), lab = $('brightVal');
+  if (el) el.value = Math.round(brightness * 100);
+  if (lab) lab.textContent = `${Math.round(brightness * 100)}%`;
+}
+function setBrightness(v) {
+  brightness = clamp(v, 0.5, 3);
+  safeStore('mp.bright', brightness);
+  applyBrightness();
+}
+$('bright').addEventListener('input', (e) => setBrightness(+e.target.value / 100));
+document.querySelectorAll('[data-bright]').forEach((b) => b.addEventListener('click', () => setBrightness(+b.dataset.bright)));
 
 let sensors;
 sensors = new Sensors(scene, env);
@@ -363,6 +383,8 @@ window.addEventListener('keydown', (e) => {
     case 'Digit3': setSensor('XRAY'); break;
     case 'KeyP': if (sensors.mode === 'IR') $('palette').click(); break;
     case 'KeyN': env.setNight(!env.night); break;
+    case 'BracketLeft': setBrightness(brightness - 0.1); break;
+    case 'BracketRight': setBrightness(brightness + 0.1); break;
     case 'KeyC': if (cam.mode === 'GROUND') cam.ground.crouch = !cam.ground.crouch; break;
     case 'KeyM': if (cam.mode !== 'MAP') cam.go('MAP'); break;
     case 'KeyH': $('help').classList.toggle('hidden'); break;

@@ -70,6 +70,10 @@
   .seg button.on.xr { background: #39d5ff; }
   .sbtn { border: 1px solid var(--line); background: transparent; border-radius: 7px; padding: 6px 10px; font: 700 12px var(--mono); color: #a9bccb; }
   .sbtn.on { color: var(--warn); border-color: #ffc04d77; }
+  #brightwrap { display: flex; align-items: center; gap: 6px; padding-left: 6px; border-left: 1px solid var(--line); font: 700 11px var(--mono); color: #a9bccb; }
+  #brightwrap input { width: 110px; accent-color: var(--warn); }
+  #brightwrap b { min-width: 38px; color: var(--warn); }
+  #brightwrap .sbtn { padding: 5px 7px; }
 
   /* compass + view mode (top right) */
   #nav { position: fixed; right: 12px; top: 56px; display: flex; gap: 8px; align-items: flex-start; z-index: 4; }
@@ -245,6 +249,14 @@
   </div>
   <button id="palette" class="sbtn hidden" title="Thermal palette (P)">WHT</button>
   <button id="night" class="sbtn" title="Day / night (N)">☀ DAY</button>
+  <div id="brightwrap" title="Brightness ([ and ])">
+    <span>BRIGHT</span>
+    <input id="bright" type="range" min="50" max="300" step="5" value="130" aria-label="Brightness">
+    <b id="brightVal">130%</b>
+    <button class="sbtn" data-bright="1" title="Normal">1×</button>
+    <button class="sbtn" data-bright="1.6" title="Bright">B</button>
+    <button class="sbtn" data-bright="2.4" title="Very bright">B+</button>
+  </div>
 </div>
 
 <section id="readout" class="panel hidden">
@@ -304,7 +316,7 @@
       <div><h4>ISR</h4><ul><li>The aircraft loiters around the aim point</li><li>Drag to slew the aim point · wheel to zoom the lens</li><li>Pair with IR (<kbd>2</kbd>) and X-RAY (<kbd>3</kbd>)</li></ul></div>
       <div><h4>GROUND</h4><ul><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run · <kbd>C</kbd> crouch</li><li>Drag to look · walls block you</li><li><kbd>M</kbd> flies back up to the map</li></ul></div>
       <div><h4>TOOLS</h4><ul><li><b>Route</b>: click waypoints, <kbd>Enter</kbd> or double-click finishes, <kbd>Backspace</kbd> undoes</li><li><b>R&amp;B</b>: two clicks; green line = line of sight</li><li><b>Viewshed</b>: red = seen from that point</li><li><b>Tag</b>: click a building or vehicle</li><li><kbd>Esc</kbd> back to Select</li></ul></div>
-      <div><h4>SENSORS</h4><ul><li><kbd>1</kbd> EO daylight camera · <kbd>2</kbd> thermal · <kbd>3</kbd> see-through</li><li><kbd>P</kbd> thermal palette: white-hot, black-hot, ironbow</li><li><kbd>N</kbd> day / night</li></ul></div>
+      <div><h4>SENSORS</h4><ul><li><kbd>1</kbd> EO daylight camera · <kbd>2</kbd> thermal · <kbd>3</kbd> see-through</li><li><kbd>P</kbd> thermal palette: white-hot, black-hot, ironbow</li><li><kbd>N</kbd> day / night · <kbd>[</kbd> <kbd>]</kbd> brightness (also the BRIGHT slider)</li></ul></div>
       <div><h4>3D DISPLAY</h4><ul><li>On a DisplayXR display the map is a sand table in front of you; the point you look at sits on the glass</li><li>Depth slider in the top bar · <code>?mono</code> forces 2D</li></ul></div>
     </div>
     <div class="actions"><button class="btn primary" id="helpClose">Close</button></div>

@@ -42,6 +42,7 @@ Each mission ends in an after-action review with a score out of 100 and a T / P 
 - **ISR:** drag to slew the aim point, wheel to zoom the lens.
 - **Ground:** WASD to walk, Shift to run, C to crouch, drag to look, M back to the map.
 - **Sensors:** 1 EO, 2 IR, 3 X-RAY, P thermal palette, N day/night. H for help.
+- **Brightness:** BRIGHT slider (50–300 %) or the 1× / B / B+ presets in the bottom bar, or `[` `]`. Remembered per browser; `?bright=0.5-3` sets it.
 
 URL options: `?mission=orient|isr|overwatch|route|hlz|rehearsal`, `?free`, `?mono` (force 2D),
 `?depth=0-2`, `?sensor=IR`, `?view=ISR|GROUND&x=..&z=..`, `?night`, `?selftest` (plays every

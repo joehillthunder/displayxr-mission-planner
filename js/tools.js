@@ -25,7 +25,7 @@ const LABEL_SPRITES = [];
 function spriteFrom(canvas, h = 0.05) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mat = new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true });
+  const mat = new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false, depthWrite: false, transparent: true, fog: false });
   const s = new THREE.Sprite(mat);
   s.userData.baseScale = [h * canvas.width / canvas.height, h];
   s.scale.set(...s.userData.baseScale, 1);
