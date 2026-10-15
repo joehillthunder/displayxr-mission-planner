@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D Mission Planner</title>
+<meta name="description" content="An ATAK-style 3D mission planning trainer for DisplayXR: aerial map, ISR drone orbit, walk the ground, thermal and see-through sensors, and six graded planning missions. Runs in 3D on a DisplayXR display and in 2D in any browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b1218'/%3E%3Cpath d='M32 8 56 32 32 56 8 32Z' fill='none' stroke='%23ff6b6b' stroke-width='5'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%233fd0ff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #070b0f;
+    --panel: rgba(10, 16, 22, 0.88);
+    --panel-2: rgba(18, 27, 36, 0.92);
+    --line: rgba(120, 170, 200, 0.18);
+    --ink: #d9e6ef;
+    --muted: #8397a6;
+    --cyan: #3fd0ff;
+    --ok: #5be37d;
+    --warn: #ffc04d;
+    --bad: #ff5c5c;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font: 14px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; outline: none; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .hidden { display: none !important; }
+  kbd { font: 600 11px/1.5 var(--mono); padding: 0 5px; border-radius: 4px; border: 1px solid var(--line); background: #0e171f; color: var(--ink); }
+
+  /* top bar */
+  #topbar { position: fixed; top: 0; left: 0; right: 0; height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 12px;
+    background: linear-gradient(#0b1218f2, #0b1218d0); border-bottom: 1px solid var(--line); z-index: 5; }
+  #brand { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: 1.2px; font-size: 13px; white-space: nowrap; }
+  #brand b { color: var(--cyan); }
+  #brand small { color: var(--muted); font-weight: 600; letter-spacing: 0.6px; }
+  #cursor { font: 12.5px var(--mono); color: #bfe9ff; flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pill { font: 700 11px var(--mono); padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--ok); border-color: #5be37d55; }
+  .pill.live { color: var(--bad); border-color: #ff5c5c66; }
+  #topbar .chip { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; font-size: 12px; }
+  #topbar .chip:hover { border-color: var(--cyan); }
+  #depthwrap { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  #depthwrap input { width: 80px; accent-color: var(--cyan); }
+
+  /* tool rail */
+  #rail { position: fixed; left: 10px; top: 56px; display: flex; flex-direction: column; gap: 4px; padding: 6px; z-index: 4; max-height: calc(100vh - 140px); overflow-y: auto; }
+  #rail .sep { height: 1px; background: var(--line); margin: 4px 2px; }
+  .tool { width: 50px; height: 46px; border: 1px solid transparent; border-radius: 8px; background: transparent; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px; font: 700 9px/1 "Segoe UI", sans-serif; letter-spacing: 0.4px; color: #a9bccb; }
+  .tool svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tool:hover { background: #ffffff0d; color: #fff; }
+  .tool.on { background: #3fd0ff1f; border-color: #3fd0ff88; color: var(--cyan); }
+  .tool.rec::after { content: ""; position: absolute; }
+  .tool.rec { box-shadow: inset 3px 0 0 var(--warn); }
+  #affil { display: flex; flex-wrap: wrap; gap: 3px; width: 50px; }
+  #affil button { width: 23px; height: 20px; border-radius: 4px; border: 1px solid var(--line); background: #0e171f; font: 800 9px var(--mono); padding: 0; }
+  #affil button.on { outline: 2px solid var(--cyan); }
+
+  /* sensors (bottom left) */
+  #sensors { position: fixed; left: 74px; bottom: 12px; display: flex; align-items: center; gap: 6px; padding: 6px; z-index: 4; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; padding: 6px 12px; font: 700 12px var(--mono); color: #a9bccb; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--cyan); color: #04131b; }
+  .seg button.on.ir { background: #f2f2f2; }
+  .seg button.on.xr { background: #39d5ff; }
+  .sbtn { border: 1px solid var(--line); background: transparent; border-radius: 7px; padding: 6px 10px; font: 700 12px var(--mono); color: #a9bccb; }
+  .sbtn.on { color: var(--warn); border-color: #ffc04d77; }
+
+  /* compass + view mode (top right) */
+  #nav { position: fixed; right: 12px; top: 56px; display: flex; gap: 8px; align-items: flex-start; z-index: 4; }
+  #compass { width: 64px; height: 64px; border-radius: 50%; position: relative; padding: 0; background: var(--panel); border: 1px solid var(--line); }
+  #compass svg { width: 100%; height: 100%; }
+  #viewmode { padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+  #viewmode button { border: 1px solid var(--line); border-radius: 6px; background: transparent; padding: 5px 10px; font: 700 11px var(--mono); color: #a9bccb; text-align: left; }
+  #viewmode button.on { color: #04131b; background: var(--cyan); border-color: var(--cyan); }
+
+  /* mission panel (right) */
+  #mission { position: fixed; right: 12px; top: 170px; width: 320px; max-height: calc(100vh - 250px); overflow: auto; padding: 12px 14px; z-index: 4; }
+  #mission header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  #mission h2 { margin: 0; font-size: 15px; letter-spacing: 0.5px; }
+  #mission h2 span { color: var(--cyan); font-family: var(--mono); margin-right: 6px; }
+  #mtimer { font: 700 15px var(--mono); color: var(--warn); }
+  #mtag { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+  #objs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  #objs li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 7px 8px; border-radius: 8px; background: #ffffff06; border: 1px solid transparent; }
+  #objs li .box { width: 16px; height: 16px; border-radius: 4px; border: 2px solid #5d7383; margin-top: 2px; }
+  #objs li.done { border-color: #5be37d44; background: #5be37d10; }
+  #objs li.done .box { background: var(--ok); border-color: var(--ok); }
+  #objs li.done .box::after { content: "\2713"; display: block; color: #062010; font: 900 11px/12px system-ui; text-align: center; }
+  #objs li b { font-weight: 600; font-size: 13px; }
+  #objs li small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  #objs li .prog { font: 700 11px var(--mono); color: var(--cyan); margin-left: 6px; }
+  #mission .row { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { border: 1px solid var(--line); background: #0e171f; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 13px; }
+  .btn:hover { border-color: var(--cyan); }
+  .btn.primary { background: var(--cyan); color: #04131b; border-color: var(--cyan); }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.ghost { background: transparent; }
+  #hintbtn { font-size: 12px; color: var(--muted); background: none; border: 0; padding: 0; text-decoration: underline; }
+
+  /* route / readout panel (bottom centre) */
+  #readout { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; width: min(560px, calc(100vw - 480px)); padding: 10px 12px; z-index: 4; }
+  #readout h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: 1px; color: var(--muted); display: flex; justify-content: space-between; }
+  #readout .stats { font: 12px var(--mono); color: #cfe6f3; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  #readout .stats b { color: #fff; }
+  #profile { width: 100%; height: 86px; display: block; margin-top: 6px; }
+  #toolhint { position: fixed; left: 74px; top: 56px; padding: 6px 10px; font-size: 12.5px; color: #cfe6f3; z-index: 3; max-width: 360px; }
+
+  /* ISR overlay */
+  #isr { position: fixed; inset: 44px 0 0 0; pointer-events: none; z-index: 2; font: 12px var(--mono); color: #e8fff0; text-shadow: 0 0 3px #000; }
+  #isr .tl, #isr .tr, #isr .bl, #isr .br { position: absolute; padding: 70px 80px; white-space: pre; line-height: 1.5; }
+  #isr .tl { left: 0; top: 0; } #isr .tr { right: 300px; top: 0; text-align: right; } #isr .bl { left: 0; bottom: 40px; } #isr .br { right: 300px; bottom: 40px; text-align: right; }
+  #isr svg { position: absolute; left: 50%; top: 50%; width: 220px; height: 220px; transform: translate(-50%, -50%); }
+
+  /* ground overlay */
+  #groundhud { position: fixed; left: 50%; top: 58px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 6px 12px; z-index: 4; font: 12px var(--mono); }
+  #detect { width: 200px; height: 10px; border-radius: 5px; background: #ffffff14; overflow: hidden; }
+  #detect i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--ok), var(--warn), var(--bad)); }
+  #seen { color: var(--bad); font-weight: 800; }
+  #reticle { position: fixed; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 1.5px solid #ffffffaa; border-radius: 50%; pointer-events: none; z-index: 2; }
+
+  /* toasts */
+  #toasts { position: fixed; left: 50%; top: 104px; transform: translateX(-50%); display: grid; gap: 6px; z-index: 8; pointer-events: none; }
+  .toast { padding: 8px 14px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); font-weight: 600; font-size: 13px; animation: tin 0.25s ease-out; }
+  .toast.ok { border-color: #5be37d88; color: #c8ffd6; }
+  .toast.bad { border-color: #ff5c5c99; color: #ffd0d0; }
+  @keyframes tin { from { transform: translateY(-6px); opacity: 0; } }
+
+  /* modals */
+  .modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(2, 6, 10, 0.6); z-index: 10; padding: 16px; }
+  .sheet { width: min(980px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 22px 24px; }
+  .sheet h1 { margin: 0; font-size: 22px; letter-spacing: 0.6px; }
+  .sheet .kicker { font: 700 11px var(--mono); letter-spacing: 2px; color: var(--cyan); }
+  .sheet p.lead { color: var(--muted); margin: 6px 0 16px; max-width: 70ch; }
+  #cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .card { text-align: left; padding: 14px; border-radius: 10px; border: 1px solid var(--line); background: #0d151c; display: grid; gap: 6px; }
+  .card:hover { border-color: var(--cyan); background: #0f1b24; }
+  .card .top { display: flex; justify-content: space-between; align-items: center; }
+  .card .code { font: 800 12px var(--mono); color: var(--cyan); }
+  .card h3 { margin: 0; font-size: 16px; }
+  .card .t { font-size: 12px; color: var(--muted); }
+  .card .d { font-size: 12.5px; color: #b8c8d3; }
+  .stars { font-size: 14px; letter-spacing: 1px; color: #3a4a56; }
+  .stars .on { color: var(--warn); }
+  .card.free { border-style: dashed; }
+  .opord { display: grid; grid-template-columns: 130px 1fr; gap: 10px 16px; margin: 16px 0; }
+  .opord dt { font: 800 11px var(--mono); letter-spacing: 1.5px; color: var(--cyan); padding-top: 2px; }
+  .opord dd { margin: 0; color: #cfdde7; }
+  .aar-grade { display: flex; align-items: center; gap: 18px; margin: 14px 0; }
+  .aar-grade .big { font: 900 54px/1 var(--mono); color: var(--warn); min-width: 90px; }
+  .aar-grade .score { font: 800 26px var(--mono); }
+  .aar table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .aar td { padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  .aar td.p { text-align: right; font-family: var(--mono); white-space: nowrap; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+  #help .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  #help h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: 1.5px; color: var(--cyan); }
+  #help ul { margin: 0; padding-left: 16px; color: #c4d3dd; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 20; font: 13px var(--mono); color: var(--muted); }
+
+  @media (max-width: 900px) {
+    #mission { width: calc(100vw - 24px); top: auto; bottom: 70px; max-height: 34vh; }
+    #readout { width: calc(100vw - 24px); bottom: auto; top: 54px; }
+    #cursor, #depthwrap { display: none; }
+    #isr .tr, #isr .br { right: 0; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+  "@displayxr/inline3d": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d.js",
+  "@displayxr/inline3d/three": "https://cdn.jsdelivr.net/npm/@displayxr/inline3d@1.45.1/js/inline3d-three.js"
+} }
+</script>
+<script type="module" src="./js/main.js"></script>
+</head>
+<body>
+<canvas id="stage" tabindex="0"></canvas>
+<div id="loading">GENERATING AO GRANITE…</div>
+
+<div id="topbar">
+  <div id="brand"><b>◆ MISSION PLANNER</b><small>AO GRANITE · VIPER 6</small></div>
+  <div id="cursor">—</div>
+  <span id="badge" class="pill">2D</span>
+  <span id="clock" class="pill">DAY</span>
+  <label id="depthwrap" title="Stereo depth">Depth <input id="depth" type="range" min="0" max="200" value="100"></label>
+  <button id="stereo" class="chip hidden">3D on</button>
+  <button id="missionsBtn" class="chip">Missions</button>
+  <button id="helpBtn" class="chip">Help <kbd>H</kbd></button>
+  <span id="fps" class="pill">— fps</span>
+</div>
+
+<nav id="rail" class="panel" aria-label="Tools">
+  <button class="tool on" data-tool="select" title="Select / pan (Esc)"><svg viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></svg>SELECT</button>
+  <button class="tool" data-tool="marker" title="Drop a marker"><svg viewBox="0 0 24 24"><path d="M12 3l7 7-7 7-7-7z"/><path d="M12 17v4"/></svg>MARKER</button>
+  <div id="affil" class="hidden">
+    <button data-a="H" style="color:#ff8080">H</button><button data-a="F" style="color:#80e0ff">F</button>
+    <button data-a="U" style="color:#ffff80">U</button><button data-a="N" style="color:#aaffaa">N</button>
+    <button data-a="OP" style="color:#80e0ff">OP</button><button data-a="HLZ" style="color:#fff">LZ</button>
+  </div>
+  <button class="tool" data-tool="route" title="Plan a route (Enter to finish, Backspace to undo)"><svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 17c5-1 3-8 10-10"/></svg>ROUTE</button>
+  <button class="tool" data-tool="rb" title="Range &amp; bearing with line of sight"><svg viewBox="0 0 24 24"><path d="M4 20L20 4"/><path d="M4 14v6h6"/><circle cx="20" cy="4" r="1.5"/></svg>R&amp;B</button>
+  <button class="tool" data-tool="viewshed" title="Viewshed: what can be seen from a point"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>VIEWSHD</button>
+  <button class="tool" data-tool="tag" title="Spot-tag a building or vehicle"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8" r="1.5"/></svg>TAG</button>
+  <div class="sep"></div>
+  <button class="tool" data-tool="isr" title="ISR drone orbit over a point"><svg viewBox="0 0 24 24"><path d="M12 9l9-3-9 12-9-12z"/><circle cx="12" cy="20" r="1"/></svg>ISR</button>
+  <button class="tool" data-tool="ground" title="Go to ground at a point"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v7M8 21l4-7 4 7M7 11h10"/></svg>GROUND</button>
+  <button class="tool" data-tool="map" title="Back to the map (M)"><svg viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>MAP</button>
+  <div class="sep"></div>
+  <button class="tool" data-ov="slope" title="Slope overlay (HLZ)"><svg viewBox="0 0 24 24"><path d="M3 20h18L3 6z"/></svg>SLOPE</button>
+  <button class="tool" data-ov="grid" title="100 m MGRS grid"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>GRID</button>
+  <button class="tool" data-ov="contour" title="10 m contours"><svg viewBox="0 0 24 24"><path d="M3 17c4-4 7 2 11-2s5-6 7-6"/><path d="M3 11c3-3 6 1 9-2s5-4 9-4"/></svg>CONTOUR</button>
+  <button class="tool" data-act="clear" title="Clear your graphics"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>CLEAR</button>
+</nav>
+
+<div id="toolhint" class="panel hidden"></div>
+
+<div id="nav">
+  <div id="viewmode" class="panel">
+    <button data-view="MAP" class="on">MAP</button>
+    <button data-view="ISR">ISR</button>
+    <button data-view="GROUND">GROUND</button>
+  </div>
+  <button id="compass" title="North up"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" fill="none" stroke="#3fd0ff55"/><g id="rose"><path d="M32 8l5 24h-10z" fill="#ff5c5c"/><path d="M32 56l5-24h-10z" fill="#8397a6"/><text x="32" y="7" fill="#fff" font-size="8" font-weight="800" text-anchor="middle" font-family="sans-serif">N</text></g></svg></button>
+</div>
+
+<aside id="mission" class="panel hidden">
+  <header><h2><span id="mcode">M1</span><span id="mname" style="color:inherit;font-family:inherit"></span></h2><span id="mtimer">0:00</span></header>
+  <div id="mtag"></div>
+  <ul id="objs"></ul>
+  <div class="row"><button id="submit" class="btn primary">Submit plan</button><button id="brief" class="btn">Brief</button><button id="abort" class="btn ghost">Abort</button></div>
+</aside>
+
+<div id="sensors" class="panel">
+  <div class="seg" id="sensorSeg">
+    <button data-s="EO" class="on" title="Electro-optical (1)">EO</button>
+    <button data-s="IR" class="ir" title="Thermal (2)">IR</button>
+    <button data-s="XRAY" class="xr" title="See-through (3)">X-RAY</button>
+  </div>
+  <button id="palette" class="sbtn hidden" title="Thermal palette (P)">WHT</button>
+  <button id="night" class="sbtn" title="Day / night (N)">☀ DAY</button>
+</div>
+
+<section id="readout" class="panel hidden">
+  <h3><span id="rtitle">ROUTE</span><span id="rsub"></span></h3>
+  <div class="stats" id="rstats"></div>
+  <canvas id="profile" width="1080" height="172"></canvas>
+</section>
+
+<div id="isr" class="hidden">
+  <div class="tl" id="isrTL"></div><div class="tr" id="isrTR"></div><div class="bl" id="isrBL"></div><div class="br" id="isrBR"></div>
+  <svg viewBox="0 0 220 220" fill="none" stroke="#e8fff0" stroke-width="1.5" opacity="0.85">
+    <path d="M110 70v30M110 120v30M70 110h30M120 110h30"/><path d="M40 60V40h20M180 60V40h-20M40 160v20h20M180 160v20h-20"/><circle cx="110" cy="110" r="3"/>
+  </svg>
+</div>
+<div id="groundhud" class="panel hidden"><span id="stance">STANDING</span><span>DETECTION</span><div id="detect"><i></i></div><span id="seen"></span></div>
+<div id="reticle" class="hidden"></div>
+<div id="toasts"></div>
+
+<div id="picker" class="modal hidden">
+  <div class="sheet panel">
+    <div class="kicker">AO GRANITE · PLANNING CELL</div>
+    <h1>Mission Planner</h1>
+    <p class="lead">Plan from the aerial map, fly an ISR orbit, drop to the ground and rehearse. Switch between daylight, thermal and see-through sensors. Each mission is graded against the real terrain and the ground truth hidden in the village.</p>
+    <div id="cards"></div>
+  </div>
+</div>
+
+<div id="briefing" class="modal hidden">
+  <div class="sheet panel" style="width:min(760px,100%)">
+    <div class="kicker" id="bkick"></div>
+    <h1 id="btitle"></h1>
+    <dl class="opord">
+      <dt>SITUATION</dt><dd id="bsit"></dd>
+      <dt>MISSION</dt><dd id="btask"></dd>
+      <dt>CONSTRAINTS</dt><dd id="bcon"></dd>
+    </dl>
+    <div class="actions"><button class="btn ghost" id="bback">Missions</button><button class="btn primary" id="bgo">Begin</button></div>
+  </div>
+</div>
+
+<div id="aar" class="modal hidden">
+  <div class="sheet panel aar" style="width:min(720px,100%)">
+    <div class="kicker">AFTER ACTION REVIEW</div>
+    <h1 id="atitle"></h1>
+    <div class="aar-grade"><div class="big" id="agrade">T</div><div><div class="score" id="ascore"></div><div id="aname" style="color:var(--muted)"></div><div class="stars" id="astars"></div></div></div>
+    <table id="atable"></table>
+    <div class="actions"><button class="btn ghost" id="areview">Review the map</button><button class="btn" id="aretry">Retry</button><button class="btn" id="alist">Missions</button><button class="btn primary" id="anext">Next mission</button></div>
+  </div>
+</div>
+
+<div id="help" class="modal hidden">
+  <div class="sheet panel">
+    <div class="kicker">CONTROLS</div>
+    <h1>How to drive the planner</h1>
+    <div class="grid" style="margin-top:14px">
+      <div><h4>MAP</h4><ul><li>Drag to pan · right-drag or Shift-drag to rotate and tilt</li><li>Wheel or <kbd>+</kbd><kbd>-</kbd> to zoom</li><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> pan · <kbd>Q</kbd><kbd>E</kbd> rotate · <kbd>R</kbd><kbd>F</kbd> tilt</li></ul></div>
+      <div><h4>ISR</h4><ul><li>The aircraft loiters around the aim point</li><li>Drag to slew the aim point · wheel to zoom the lens</li><li>Pair with IR (<kbd>2</kbd>) and X-RAY (<kbd>3</kbd>)</li></ul></div>
+      <div><h4>GROUND</h4><ul><li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run · <kbd>C</kbd> crouch</li><li>Drag to look · walls block you</li><li><kbd>M</kbd> flies back up to the map</li></ul></div>
+      <div><h4>TOOLS</h4><ul><li><b>Route</b>: click waypoints, <kbd>Enter</kbd> or double-click finishes, <kbd>Backspace</kbd> undoes</li><li><b>R&amp;B</b>: two clicks; green line = line of sight</li><li><b>Viewshed</b>: red = seen from that point</li><li><b>Tag</b>: click a building or vehicle</li><li><kbd>Esc</kbd> back to Select</li></ul></div>
+      <div><h4>SENSORS</h4><ul><li><kbd>1</kbd> EO daylight camera · <kbd>2</kbd> thermal · <kbd>3</kbd> see-through</li><li><kbd>P</kbd> thermal palette: white-hot, black-hot, ironbow</li><li><kbd>N</kbd> day / night</li></ul></div>
+      <div><h4>3D DISPLAY</h4><ul><li>On a DisplayXR display the map is a sand table in front of you; the point you look at sits on the glass</li><li>Depth slider in the top bar · <code>?mono</code> forces 2D</li></ul></div>
+    </div>
+    <div class="actions"><button class="btn primary" id="helpClose">Close</button></div>
+  </div>
+</div>
+</body>
+</html>
